@@ -8,32 +8,4 @@ repo_url: https://github.com/aeternity/aepp-sdk-js
 theme:
   name: readthedocs
 nav:
-  - Overview: README.md
-  - guides/quick-start.md
-  - Guides:
-      - guides/contract-aci-usage.md
-      - guides/contract-events.md
-      - guides/oracle-usage.md
-      - guides/aens-usage.md
-      - guides/delegate-signature-to-contract.md
-      - Wallet Api: guides/how-to-build-aepp-using-new-wallet-api.md
-      - Building Wallets: guides/how-to-build-an-wallet-app-or-extension.md
-      - guides/low-vs-high-usage.md
-      - guides/import-tree-shaking.md
-      - Migration: guides/migration/migration-7.0.0.md
-  - API Reference:
-      - account: flattened/account-selector-memory-accounts-4-.md
-      - ae: flattened/aens-aepp-contract-oracle-universal-wallet-.md
-      - chain: flattened/chain-node-.md
-      - channel: api/channel/index.md
-      - contract: flattened/aci-compiler-ga-4-.md
-      - oracle: flattened/oracle-node-.md
-      - Deprecated RPC Client: api/rpc/client.md
-      - tx: flattened/builder-4helpers-4schema-4tx-4tx-4tx-object-4validator-4.md
-      - Aepp Wallet Communication: >-
-          flattened/connection-5content-script-bridge-4wallet-detector-4browser-runtime-4browser-window-message-5aepp-rpc-5rpc-client-5wallet-rpc-5.md
-      - utils: >-
-          flattened/ae-amount-formatter-bignumber-bytes-crypto-keystore-contract-node-node-pool-swagger-.md
-  - Examples:
-      - NodeJS: flattened/contract-wallet-import-nodejs-4-.md
-      - JS: flattened/import-script-tag-import-vuejs-.md
+  - Moved: moved.md
