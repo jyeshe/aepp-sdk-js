@@ -198,7 +198,8 @@ describe('Contract ACI Interface', function () {
   })
 
   it('Dry-run deploy fn', async () => {
-    const res = await contractObject.methods.init.get('123', 1, 'hahahaha')
+    const res = await contractObject.methods.init
+      .get('test', 1, { variant: 'Some', values: ['hahahaha'] })
     res.result.should.have.property('gasUsed')
     res.result.should.have.property('returnType')
     // TODO: ensure that return value is always can't be decoded (empty?)
@@ -207,7 +208,8 @@ describe('Contract ACI Interface', function () {
   it('Dry-run deploy fn on specific account', async () => {
     const current = await sdk.address()
     const onAccount = sdk.addresses().find(acc => acc !== current)
-    const { result } = await contractObject.methods.init.get('123', 1, 'hahahaha', { onAccount })
+    const { result } = await contractObject.methods.init
+      .get('test', 1, { variant: 'Some', values: ['hahahaha'] }, { onAccount })
     result.should.have.property('gasUsed')
     result.should.have.property('returnType')
     result.callerId.should.be.equal(onAccount)
@@ -215,13 +217,13 @@ describe('Contract ACI Interface', function () {
 
   it('Deploy contract before compile', async () => {
     contractObject.compiled = null
-    await contractObject.methods.init('123', 1, 'hahahaha')
+    await contractObject.methods.init('test', 1, 'hahahaha')
     const isCompiled = contractObject.compiled.length && contractObject.compiled.startsWith('cb_')
     isCompiled.should.be.equal(true)
   })
 
   it('Deploy/Call contract with waitMined: false', async () => {
-    const deployed = await contractObject.methods.init('123', 1, 'hahahaha', { waitMined: false })
+    const deployed = await contractObject.methods.init('test', 1, 'hahahaha', { waitMined: false })
     await sdk.poll(deployed.transaction, { interval: 50, attempts: 1200 })
     expect(deployed.result).to.be.equal(undefined)
     const result = await contractObject.methods.intFn.send(2, { waitMined: false })
@@ -274,7 +276,7 @@ describe('Contract ACI Interface', function () {
 
   it('Can pay to payable function', async () => {
     const contractBalance = await sdk.balance(contractObject.deployInfo.address)
-    await contractObject.methods.stringFn.send('1', { amount: 100 })
+    await contractObject.methods.stringFn.send('test', { amount: 100 })
     const balanceAfter = await sdk.balance(contractObject.deployInfo.address)
     balanceAfter.should.be.equal(`${+contractBalance + 100}`)
   })
@@ -282,14 +284,15 @@ describe('Contract ACI Interface', function () {
   it('Call contract on specific account', async () => {
     const current = await sdk.address()
     const onAccount = sdk.addresses().find(acc => acc !== current)
-    const { result } = await contractObject.methods.intFn('123', { onAccount })
+    const { result } = await contractObject.methods.intFn(123, { onAccount })
     result.callerId.should.be.equal(onAccount)
   })
 
   describe('Arguments Validation and Casting', function () {
     describe('INT', function () {
       it('Invalid', async () => {
-        await expect(contractObject.methods.intFn('asd')).to.be.rejectedWith('"[asd]" must be a number')
+        await expect(contractObject.methods.intFn('asd'))
+          .to.be.rejectedWith('Cannot convert asd to a BigInt')
       })
 
       it('Valid', async () => {
@@ -346,17 +349,17 @@ describe('Contract ACI Interface', function () {
     describe('TUPLE', function () {
       it('Invalid type', async () => {
         await expect(contractObject.methods.tupleFn('asdasasd'))
-          .to.be.rejectedWith('"[asdasasd]" must be an array')
+          .to.be.rejectedWith('Cannot convert s to a BigInt')
       })
 
       it('Invalid tuple prop type', async () => {
         await expect(contractObject.methods.tupleFn([1, 'string']))
-          .to.be.rejectedWith('"[0][0]" must be a string. "[0][1]" must be a number')
+          .to.be.rejectedWith('Cannot convert string to a BigInt')
       })
 
       it('Required tuple prop', async () => {
         await expect(contractObject.methods.tupleFn([1]))
-          .to.be.rejectedWith('"[0][0]" must be a string. "[1]" does not contain 1 required value(s)')
+          .to.be.rejectedWith('Cannot convert undefined to a BigInt')
       })
 
       it('Wrong type in list inside tuple', async () => {
@@ -378,17 +381,17 @@ describe('Contract ACI Interface', function () {
     describe('LIST', function () {
       it('Invalid type', async () => {
         await expect(contractObject.methods.listFn('asdasasd'))
-          .to.be.rejectedWith('"[asdasasd]" must be an array')
+          .to.be.rejectedWith('value.map is not a function')
       })
 
       it('Invalid list element type', async () => {
         await expect(contractObject.methods.listFn([1, 'string']))
-          .to.be.rejectedWith('"[0][1]" must be a number')
+          .to.be.rejectedWith('Cannot convert string to a BigInt')
       })
 
       it('Invalid list element type nested', async () => {
         await expect(contractObject.methods.listInListFn([['childListWronmgElement'], 'parentListWrongElement']))
-          .to.be.rejectedWith('"[0][0][0]" must be a number. "[0][1]" must be an array')
+          .to.be.rejectedWith('Cannot convert childListWronmgElement to a BigInt')
       })
 
       it('Valid', async () => {
@@ -402,17 +405,17 @@ describe('Contract ACI Interface', function () {
 
       it('Valid', async () => {
         const mapArg = new Map([[address, ['someStringV', 324]]])
-        const { decodedResult } = await contractObject.methods.mapFn(Object.fromEntries(mapArg))
+        const { decodedResult } = await contractObject.methods.mapFn(mapArg)
         decodedResult.should.be.eql(Array.from(mapArg.entries()))
       })
 
       it('Map With Option Value', async () => {
-        const mapWithSomeValue = new Map([[address, ['someStringV', 123]]])
-        const mapWithNoneValue = new Map([[address, ['someStringV', undefined]]])
+        const mapWithSomeValue = new Map([[address, ['someStringV', { variant: 'Some', values: [123] }]]])
+        const mapWithNoneValue = new Map([[address, ['someStringV', { variant: 'None', values: [] }]]])
         let result = await contractObject.methods.mapOptionFn(mapWithSomeValue)
-        result.decodedResult.should.be.eql(Array.from(mapWithSomeValue.entries()))
+        result.decodedResult.should.be.eql([[address, ['someStringV', 123]]])
         result = await contractObject.methods.mapOptionFn(mapWithNoneValue)
-        result.decodedResult.should.be.eql(Array.from(mapWithNoneValue.entries()))
+        result.decodedResult.should.be.eql([[address, ['someStringV', undefined]]])
       })
 
       it('Cast from string to int', async () => {
@@ -431,7 +434,7 @@ describe('Contract ACI Interface', function () {
 
     describe('RECORD/STATE', function () {
       it('Valid Set Record (Cast from JS object)', async () => {
-        await contractObject.methods.setRecord({ value: 'qwe', key: 1234, testOption: 'test' })
+        await contractObject.methods.setRecord({ value: 'qwe', key: 1234, testOption: { variant: 'Some', values: ['test'] } })
         const state = await contractObject.methods.getRecord()
 
         state.decodedResult.should.be.eql({ value: 'qwe', key: 1234, testOption: 'test' })
@@ -443,37 +446,37 @@ describe('Contract ACI Interface', function () {
       })
 
       it('Get Record With Option (Convert to JS object)', async () => {
-        await contractObject.methods.setRecord({ key: 1234, value: 'qwe', testOption: 'resolved string' })
+        await contractObject.methods.setRecord({ key: 1234, value: 'qwe', testOption: { variant: 'Some', values: ['resolved string'] } })
         const result = await contractObject.methods.getRecord()
         result.decodedResult.should.be.eql({ value: 'qwe', key: 1234, testOption: 'resolved string' })
       })
 
       it('Invalid value type', async () => {
         await expect(contractObject.methods.setRecord({ value: 123, key: 'test' }))
-          .to.be.rejectedWith('"[0].value" must be a string. "[0].key" must be a number')
+          .to.be.rejectedWith('Cannot convert test to a BigInt')
       })
     })
 
     describe('OPTION', function () {
       it('Set Some Option Value(Cast from JS value/Convert result to JS)', async () => {
-        const optionRes = await contractObject.methods.intOption(123)
+        const optionRes = await contractObject.methods.intOption({ variant: 'Some', values: [123] })
         optionRes.decodedResult.should.be.equal(123)
       })
 
       it('Set Some Option List Value(Cast from JS value/Convert result to JS)', async () => {
-        const optionRes = await contractObject.methods.listOption([[1, 'testString']])
+        const optionRes = await contractObject.methods.listOption({ variant: 'Some', values: [[[1, 'testString']]] })
         optionRes.decodedResult.should.be.eql([[1, 'testString']])
       })
 
       it('Set None Option Value(Cast from JS value/Convert to JS)', async () => {
-        const optionRes = await contractObject.methods.intOption(undefined)
+        const optionRes = await contractObject.methods.intOption({ variant: 'None', values: [] })
         const isUndefined = optionRes.decodedResult === undefined
         isUndefined.should.be.equal(true)
       })
 
       it('Invalid option type', async () => {
-        await expect(contractObject.methods.intOption('string'))
-          .to.be.rejectedWith('"[string]" must be a number')
+        await expect(contractObject.methods.intOption('test-string'))
+          .to.be.rejectedWith('Variant value should be an object with "variant" and "values" fields, got test-string instead')
       })
     })
 
@@ -487,26 +490,26 @@ describe('Contract ACI Interface', function () {
     describe('DATATYPE', function () {
       it('Invalid type', async () => {
         await expect(contractObject.methods.datTypeFn({}))
-          .to.be.rejectedWith('"[[object Object]]" does not match any of the allowed types')
+          .to.be.rejectedWith('Unknown variant: {}')
       })
 
       it('Call generic datatype', async () => {
-        const res = await contractObject.methods.datTypeGFn({ Left: [2] })
+        const res = await contractObject.methods.datTypeGFn({ variant: 'Left', values: [2] })
         res.decodedResult.should.be.equal(2)
       })
 
       it('Invalid arguments length', async () => {
         await expect(contractObject.methods.datTypeGFn())
-          .to.be.rejectedWith('Function "datTypeGFn" require 1 arguments of types [{"StateContract.one_or_both":["int","string"]}] but get []')
+          .to.be.rejectedWith('Non matching number of arguments. Got 0 but expected 1')
       })
 
       it('Invalid variant', async () => {
-        await expect(contractObject.methods.datTypeFn('asdcxz'))
-          .to.be.rejectedWith('"[asdcxz]" must be one of [Year, Month, Day, object]')
+        await expect(contractObject.methods.datTypeFn({ variant: 'asdcxz', values: [] }))
+          .to.be.rejectedWith('Unknown variant: {"variant":"asdcxz","values":[]}')
       })
 
       it('Valid', async () => {
-        const res = await contractObject.methods.datTypeFn('Year')
+        const res = await contractObject.methods.datTypeFn({ variant: 'Year', values: [] })
         res.decodedResult.should.be.equal('Year')
       })
     })
@@ -514,13 +517,14 @@ describe('Contract ACI Interface', function () {
     describe('Hash', function () {
       it('Invalid type', async () => {
         await expect(contractObject.methods.hashFn({}))
-          .to.be.rejectedWith('The first argument must be of type string or an instance of Buffer, ArrayBuffer, or Array or an Array-like Object. Received an instance of Object')
+          .to.be.rejectedWith('Cannot convert [object Object] to a BigInt')
       })
 
       it('Invalid length', async () => {
         const address = await sdk.address()
         const decoded = Buffer.from(decode(address, 'ak').slice(1))
-        await expect(contractObject.methods.hashFn(decoded)).to.be.rejectedWith('must be 32 bytes')
+        await expect(contractObject.methods.hashFn(decoded))
+          .to.be.rejectedWith('is not of type [{bytes,32}]')
       })
 
       it('Valid', async () => {
@@ -536,13 +540,14 @@ describe('Contract ACI Interface', function () {
     describe('Signature', function () {
       it('Invalid type', async () => {
         await expect(contractObject.methods.signatureFn({}))
-          .to.be.rejectedWith('The first argument must be of type string or an instance of Buffer, ArrayBuffer, or Array or an Array-like Object. Received an instance of Object')
+          .to.be.rejectedWith('Cannot convert [object Object] to a BigInt')
       })
 
       it('Invalid length', async () => {
         const address = await sdk.address()
         const decoded = decode(address, 'ak')
-        await expect(contractObject.methods.signatureFn(decoded)).to.be.rejectedWith('must be 64 bytes')
+        await expect(contractObject.methods.signatureFn(decoded))
+          .to.be.rejectedWith('is not of type [{bytes,64}]')
       })
 
       it('Valid', async () => {
@@ -559,14 +564,14 @@ describe('Contract ACI Interface', function () {
     describe('Bytes', function () {
       it('Invalid type', async () => {
         await expect(contractObject.methods.bytesFn({}))
-          .to.be.rejectedWith('The first argument must be of type string or an instance of Buffer, ArrayBuffer, or Array or an Array-like Object. Received an instance of Object')
+          .to.be.rejectedWith('Cannot convert [object Object] to a BigInt')
       })
 
       it('Invalid length', async () => {
         const address = await sdk.address()
         const decoded = decode(address, 'ak')
         await expect(contractObject.methods.bytesFn(Buffer.from([...decoded, 2])))
-          .to.be.rejectedWith('must be 32 bytes')
+          .to.be.rejectedWith('is not of type [{bytes,32}]"')
       })
 
       it('Valid', async () => {
