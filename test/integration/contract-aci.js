@@ -374,7 +374,7 @@ describe('Contract ACI Interface', function () {
 
       it('Valid', async () => {
         const { decodedResult } = await contractObject.methods.tupleFn(['test', 1])
-        decodedResult.should.be.eql(['test', 1])
+        decodedResult.should.be.eql(['test', 1n])
       })
     })
 
@@ -396,7 +396,7 @@ describe('Contract ACI Interface', function () {
 
       it('Valid', async () => {
         const { decodedResult } = await contractObject.methods.listInListFn([[1, 2], [3, 4]])
-        decodedResult.should.be.eql([[1, 2], [3, 4]])
+        decodedResult.should.be.eql([[1n, 2n], [3n, 4n]])
       })
     })
 
@@ -404,31 +404,31 @@ describe('Contract ACI Interface', function () {
       const address = 'ak_gvxNbZf5CuxYVfcUFoKAP4geZatWaC2Yy4jpx5vZoCKank4Gc'
 
       it('Valid', async () => {
-        const mapArg = new Map([[address, ['someStringV', 324]]])
+        const mapArg = new Map([[address, ['someStringV', 324n]]])
         const { decodedResult } = await contractObject.methods.mapFn(mapArg)
-        decodedResult.should.be.eql(Array.from(mapArg.entries()))
+        decodedResult.should.be.eql(mapArg)
       })
 
       it('Map With Option Value', async () => {
         const mapWithSomeValue = new Map([[address, ['someStringV', { variant: 'Some', values: [123] }]]])
         const mapWithNoneValue = new Map([[address, ['someStringV', { variant: 'None', values: [] }]]])
         let result = await contractObject.methods.mapOptionFn(mapWithSomeValue)
-        result.decodedResult.should.be.eql([[address, ['someStringV', 123]]])
+        result.decodedResult.should.be.eql(new Map([[address, ['someStringV', { Some: [123n] }]]]))
         result = await contractObject.methods.mapOptionFn(mapWithNoneValue)
-        result.decodedResult.should.be.eql([[address, ['someStringV', undefined]]])
+        result.decodedResult.should.be.eql(new Map([[address, ['someStringV', { None: [] }]]]))
       })
 
       it('Cast from string to int', async () => {
         const mapArg = new Map([[address, ['someStringV', '324']]])
         const result = await contractObject.methods.mapFn(mapArg)
-        mapArg.set(address, ['someStringV', 324])
-        result.decodedResult.should.be.eql(Array.from(mapArg.entries()))
+        mapArg.set(address, ['someStringV', 324n])
+        result.decodedResult.should.be.eql(mapArg)
       })
 
       it('Cast from array to map', async () => {
-        const mapArg = [[address, ['someStringV', 324]]]
+        const mapArg = [[address, ['someStringV', 324n]]]
         const { decodedResult } = await contractObject.methods.mapFn(mapArg)
-        decodedResult.should.be.eql(mapArg)
+        decodedResult.should.be.eql(new Map(mapArg))
       })
     })
 
@@ -436,19 +436,18 @@ describe('Contract ACI Interface', function () {
       it('Valid Set Record (Cast from JS object)', async () => {
         await contractObject.methods.setRecord({ value: 'qwe', key: 1234, testOption: { variant: 'Some', values: ['test'] } })
         const state = await contractObject.methods.getRecord()
-
-        state.decodedResult.should.be.eql({ value: 'qwe', key: 1234, testOption: 'test' })
+        state.decodedResult.should.be.eql({ value: 'qwe', key: 1234n, testOption: { Some: ['test'] } })
       })
 
       it('Get Record(Convert to JS object)', async () => {
         const result = await contractObject.methods.getRecord()
-        result.decodedResult.should.be.eql({ value: 'qwe', key: 1234, testOption: 'test' })
+        result.decodedResult.should.be.eql({ value: 'qwe', key: 1234n, testOption: { Some: ['test'] } })
       })
 
       it('Get Record With Option (Convert to JS object)', async () => {
         await contractObject.methods.setRecord({ key: 1234, value: 'qwe', testOption: { variant: 'Some', values: ['resolved string'] } })
         const result = await contractObject.methods.getRecord()
-        result.decodedResult.should.be.eql({ value: 'qwe', key: 1234, testOption: 'resolved string' })
+        result.decodedResult.should.be.eql({ value: 'qwe', key: 1234n, testOption: { Some: ['resolved string'] } })
       })
 
       it('Invalid value type', async () => {
@@ -460,18 +459,17 @@ describe('Contract ACI Interface', function () {
     describe('OPTION', function () {
       it('Set Some Option Value(Cast from JS value/Convert result to JS)', async () => {
         const optionRes = await contractObject.methods.intOption({ variant: 'Some', values: [123] })
-        optionRes.decodedResult.should.be.equal(123)
+        optionRes.decodedResult.should.be.eql({ Some: [123n] })
       })
 
       it('Set Some Option List Value(Cast from JS value/Convert result to JS)', async () => {
         const optionRes = await contractObject.methods.listOption({ variant: 'Some', values: [[[1, 'testString']]] })
-        optionRes.decodedResult.should.be.eql([[1, 'testString']])
+        optionRes.decodedResult.should.be.eql({ Some: [[[1n, 'testString']]] })
       })
 
       it('Set None Option Value(Cast from JS value/Convert to JS)', async () => {
         const optionRes = await contractObject.methods.intOption({ variant: 'None', values: [] })
-        const isUndefined = optionRes.decodedResult === undefined
-        isUndefined.should.be.equal(true)
+        expect(optionRes.decodedResult).to.be.eql({ None: [] })
       })
 
       it('Invalid option type', async () => {
@@ -483,7 +481,7 @@ describe('Contract ACI Interface', function () {
     describe('NAMESPACES', function () {
       it('Use namespace in function body', async () => {
         const res = await contractObject.methods.usingExternalLib(2)
-        res.decodedResult.should.be.equal(4)
+        res.decodedResult.should.be.equal(4n)
       })
     })
 
@@ -495,7 +493,7 @@ describe('Contract ACI Interface', function () {
 
       it('Call generic datatype', async () => {
         const res = await contractObject.methods.datTypeGFn({ variant: 'Left', values: [2] })
-        res.decodedResult.should.be.equal(2)
+        res.decodedResult.should.be.equal(2n)
       })
 
       it('Invalid arguments length', async () => {
@@ -510,7 +508,7 @@ describe('Contract ACI Interface', function () {
 
       it('Valid', async () => {
         const res = await contractObject.methods.datTypeFn({ variant: 'Year', values: [] })
-        res.decodedResult.should.be.equal('Year')
+        res.decodedResult.should.be.eql({ Year: [] })
       })
     })
 
@@ -532,8 +530,8 @@ describe('Contract ACI Interface', function () {
         const decoded = decode(address, 'ak')
         const hashAsBuffer = await contractObject.methods.hashFn(decoded)
         const hashAsHex = await contractObject.methods.hashFn(decoded.toString('hex'))
-        hashAsBuffer.decodedResult.should.be.equal(decoded.toString('hex'))
-        hashAsHex.decodedResult.should.be.equal(decoded.toString('hex'))
+        hashAsBuffer.decodedResult.should.be.eql(decoded)
+        hashAsHex.decodedResult.should.be.eql(decoded)
       })
     })
 
@@ -556,8 +554,8 @@ describe('Contract ACI Interface', function () {
         const fakeSignature = Buffer.from(await sdk.sign(decoded))
         const hashAsBuffer = await contractObject.methods.signatureFn(fakeSignature)
         const hashAsHex = await contractObject.methods.signatureFn(fakeSignature.toString('hex'))
-        hashAsBuffer.decodedResult.should.be.equal(fakeSignature.toString('hex'))
-        hashAsHex.decodedResult.should.be.equal(fakeSignature.toString('hex'))
+        hashAsBuffer.decodedResult.should.be.eql(fakeSignature)
+        hashAsHex.decodedResult.should.be.eql(fakeSignature)
       })
     })
 
@@ -579,8 +577,8 @@ describe('Contract ACI Interface', function () {
         const decoded = decode(address, 'ak')
         const hashAsBuffer = await contractObject.methods.bytesFn(decoded)
         const hashAsHex = await contractObject.methods.bytesFn(decoded.toString('hex'))
-        hashAsBuffer.decodedResult.should.be.equal(decoded.toString('hex'))
-        hashAsHex.decodedResult.should.be.equal(decoded.toString('hex'))
+        hashAsBuffer.decodedResult.should.be.eql(decoded)
+        hashAsHex.decodedResult.should.be.eql(decoded)
       })
     })
   })
@@ -588,12 +586,12 @@ describe('Contract ACI Interface', function () {
   describe('Call contract', function () {
     it('Call contract using using js type arguments', async () => {
       const res = await contractObject.methods.listFn([1, 2])
-      return res.decode().should.eventually.become([1, 2])
+      expect(res.decodedResult).to.be.eql([1n, 2n])
     })
 
     it('Call contract with contract type argument', async () => {
       const result = await contractObject.methods.approve(0, 'ct_AUUhhVZ9de4SbeRk8ekos4vZJwMJohwW5X8KQjBMUVduUmoUh')
-      return result.decode().should.eventually.become(0)
+      expect(result.decodedResult).to.be.equal(0n)
     })
   })
 
