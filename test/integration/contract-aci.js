@@ -17,8 +17,7 @@
 import { expect } from 'chai'
 import { before, describe, it } from 'mocha'
 import * as R from 'ramda'
-import { getFunctionACI } from '../../src/contract/aci/helpers'
-import { decodeEvents, readType, SOPHIA_TYPES } from '../../src/contract/aci/transformation'
+import { decodeEvents, SOPHIA_TYPES } from '../../src/contract/aci/transformation'
 import { decode } from '../../src/tx/builder/helpers'
 import { getSdk } from './'
 
@@ -124,7 +123,7 @@ describe('Contract ACI Interface', function () {
         testContract,
         { filesystem }
       )
-      await cInstance.deploy(['test', 1, 'some'])
+      await cInstance.deploy(['test', 1, { variant: 'Some', values: ['some'] }])
       eventResult = await cInstance.methods.emitEvents()
       const { log } = await sdk.tx(eventResult.hash)
       decodedEventsWithoutACI = decodeEvents(log, events)
@@ -217,13 +216,13 @@ describe('Contract ACI Interface', function () {
 
   it('Deploy contract before compile', async () => {
     contractObject.compiled = null
-    await contractObject.methods.init('test', 1, 'hahahaha')
+    await contractObject.methods.init('test', 1, { variant: 'Some', values: ['hahahaha'] })
     const isCompiled = contractObject.compiled.length && contractObject.compiled.startsWith('cb_')
     isCompiled.should.be.equal(true)
   })
 
   it('Deploy/Call contract with waitMined: false', async () => {
-    const deployed = await contractObject.methods.init('test', 1, 'hahahaha', { waitMined: false })
+    const deployed = await contractObject.methods.init('test', 1, { variant: 'Some', values: ['hahahaha'] }, { waitMined: false })
     await sdk.poll(deployed.transaction, { interval: 50, attempts: 1200 })
     expect(deployed.result).to.be.equal(undefined)
     const result = await contractObject.methods.intFn.send(2, { waitMined: false })
@@ -592,39 +591,6 @@ describe('Contract ACI Interface', function () {
     it('Call contract with contract type argument', async () => {
       const result = await contractObject.methods.approve(0, 'ct_AUUhhVZ9de4SbeRk8ekos4vZJwMJohwW5X8KQjBMUVduUmoUh')
       expect(result.decodedResult).to.be.equal(0n)
-    })
-  })
-
-  describe('Type resolving', () => {
-    let cInstance
-
-    before(async () => {
-      cInstance = await sdk.getContractInstance(
-        testContract,
-        { filesystem }
-      )
-    })
-
-    it('Resolve remote contract type', async () => {
-      const fnACI = getFunctionACI(cInstance.aci, 'remoteContract', cInstance.externalAci)
-      readType('Voting', fnACI.bindings).t.should.be.equal('address')
-    })
-
-    it('Resolve external contract type', async () => {
-      const fnACI = getFunctionACI(cInstance.aci, 'remoteArgs', cInstance.externalAci)
-      readType(fnACI.arguments[0].type, fnACI.bindings).should.eql({
-        t: 'record',
-        generic: [{
-          name: 'value',
-          type: 'string'
-        }, {
-          name: 'key',
-          type: {
-            list: ['Voting.test_type']
-          }
-        }]
-      })
-      readType(fnACI.returns, fnACI.bindings).t.should.be.equal('int')
     })
   })
 })
